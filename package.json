@@ -1,0 +1,23 @@
+{
+  "name": "conty-attribution-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.4",
+    "hono": "^4.13.13",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "typescript": "^7.0.2"
+  }
+}
