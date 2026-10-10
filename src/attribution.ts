@@ -31,8 +31,9 @@ export function resolveAttribution(input: {
     : evaluated.filter((touch) => touch.eligible);
   eligible.sort((a, b) => Date.parse(b.recorded_at) - Date.parse(a.recorded_at) || b.sequence - a.sequence);
   const winner = eligible[0];
+  const winnerTimestamp = winner ? Date.parse(winner.recorded_at) : null;
   const tiedForLatest = winner
-    ? eligible.filter((touch) => touch.recorded_at === winner.recorded_at)
+    ? eligible.filter((touch) => Date.parse(touch.recorded_at) === winnerTimestamp)
     : [];
 
   if (!winner) {
@@ -57,7 +58,7 @@ export function resolveAttribution(input: {
       return { ...touch, selected: true, reasons: [decisionReason] };
     }
     if (!touch.eligible) return touch;
-    const lostTie = touch.recorded_at === winner.recorded_at;
+    const lostTie = Date.parse(touch.recorded_at) === winnerTimestamp;
     return {
       ...touch,
       reasons: [lostTie ? 'TIE_LOST_TO_LATER_SEQUENCE' as const : 'SUPERSEDED_BY_LATER_TOUCH' as const],

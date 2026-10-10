@@ -47,6 +47,46 @@ test('when timestamps tie, the later persisted sequence wins', () => {
   assert.deepEqual(result.touches[1]?.reasons, ['LATEST_SEQUENCE_ON_TIMESTAMP_TIE']);
 });
 
+test('equivalent offset timestamps tie by instant in either input order and retain their original strings', () => {
+  const earlierTouch: TouchForDecision = {
+    ...firstTouch,
+    touch_token: 'touch-earlier',
+    recorded_at: '2026-10-09T12:59:59.999Z',
+    sequence: 4,
+  };
+  const equivalentTimestamps = [
+    '2026-10-09T10:00:00.000-03:00',
+    '2026-10-09T15:00:00.000+02:00',
+  ];
+
+  for (const [index, offsetTimestamp] of equivalentTimestamps.entries()) {
+    const offsetTouch: TouchForDecision = {
+      ...firstTouch,
+      touch_token: `touch-offset-${index}`,
+      source: 'referral',
+      recorded_at: offsetTimestamp,
+      sequence: 3,
+    };
+    const touches = index === 0
+      ? [firstTouch, offsetTouch, earlierTouch]
+      : [earlierTouch, offsetTouch, firstTouch];
+    const result = resolveAttribution({
+      first_open_at: start,
+      signup_at: '2026-10-09T14:00:00.000Z',
+      touches,
+    });
+    const byToken = new Map(result.touches.map((touch) => [touch.touch_token, touch]));
+
+    assert.equal(result.selected_touch_token, offsetTouch.touch_token);
+    assert.equal(result.reason, 'LATEST_SEQUENCE_ON_TIMESTAMP_TIE');
+    assert.deepEqual(byToken.get(firstTouch.touch_token)?.reasons, ['TIE_LOST_TO_LATER_SEQUENCE']);
+    assert.deepEqual(byToken.get(offsetTouch.touch_token)?.reasons, ['LATEST_SEQUENCE_ON_TIMESTAMP_TIE']);
+    assert.deepEqual(byToken.get(earlierTouch.touch_token)?.reasons, ['SUPERSEDED_BY_LATER_TOUCH']);
+    assert.equal(byToken.get(firstTouch.touch_token)?.recorded_at, firstTouch.recorded_at);
+    assert.equal(byToken.get(offsetTouch.touch_token)?.recorded_at, offsetTimestamp);
+  }
+});
+
 test('the end of the fixed window is inclusive and one millisecond after is outside', () => {
   const end = new Date(Date.parse(start) + ATTRIBUTION_WINDOW_MS).toISOString();
   const inclusive = resolveAttribution({

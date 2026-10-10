@@ -104,11 +104,6 @@ A política LAST_VALID_TOUCH usa uma janela fixa inclusiva de 168 horas a partir
 
 O horário do toque é quando o servidor aceita POST /app/touches, não quando o clique foi emitido. O fluxo precisa de conexão para registrar a primeira abertura e enviar toques; não reconstrói horários offline. A API de demonstração não autentica usuários.
 
-Limitações auditadas, mantidas nesta entrega:
-
-- O helper resolve timestamps equivalentes por instante, mas detecta o motivo de empate comparando as strings. Se os mesmos instantes forem escritos com offsets diferentes, a sequência maior ainda vence, mas a auditoria pode informar LAST_VALID_TOUCH e SUPERSEDED_BY_LATER_TOUCH em vez dos motivos de empate. O fluxo HTTP normaliza horários para UTC.
-- JSON malformado em uma requisição pode resultar em 500, não 400. A leitura do corpo falha antes de qualquer gravação.
-
 ## Uso de IA e revisão
 
-Codex escreveu a implementação, os testes e esta documentação. Uma sessão separada do Codex fez revisão técnica somente leitura do snapshot e registrou os limites acima. Na preparação, a pessoa responsável filtrou instruções externas ao escopo, definiu critérios e checkpoints, acompanhou as evidências e autorizou a publicação; isso não declara revisão humana linha a linha do código.
+Codex escreveu a implementação, os testes e esta documentação. Uma sessão separada do Codex fez uma revisão técnica somente leitura do snapshot; depois, o Codex corrigiu os motivos de empate entre timestamps com offsets equivalentes e o tratamento de JSON malformado ou vazio, e acrescentou testes de regressão. A validação foi executada com Node.js 24.18.0: `npm test` passou com 13 testes e `npm run typecheck` passou. A pessoa responsável definiu critérios e checkpoints, acompanhou as evidências e autorizou as correções; isso não declara revisão humana linha a linha do código.

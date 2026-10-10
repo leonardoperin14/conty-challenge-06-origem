@@ -152,6 +152,63 @@ test('organic signup, invalid requests, and conflicting identities return explic
   }
 });
 
+test('all POST endpoints reject malformed and empty JSON before writing', async () => {
+  const f = fixture();
+  const writeCalls: string[] = [];
+  const originalCreateLink = f.store.createLink.bind(f.store);
+  const originalCreateClick = f.store.createClick.bind(f.store);
+  const originalFirstOpen = f.store.firstOpen.bind(f.store);
+  const originalRecordTouch = f.store.recordTouch.bind(f.store);
+  const originalCreateSignup = f.store.createSignup.bind(f.store);
+  f.store.createLink = (input) => { writeCalls.push('createLink'); return originalCreateLink(input); };
+  f.store.createClick = (input) => { writeCalls.push('createClick'); return originalCreateClick(input); };
+  f.store.firstOpen = (installationId) => { writeCalls.push('firstOpen'); return originalFirstOpen(installationId); };
+  f.store.recordTouch = (input) => { writeCalls.push('recordTouch'); return originalRecordTouch(input); };
+  f.store.createSignup = (input) => { writeCalls.push('createSignup'); return originalCreateSignup(input); };
+
+  const routes = ['/links', '/clicks', '/app/first-open', '/app/touches', '/signups'];
+  try {
+    for (const path of routes) {
+      for (const body of ['{', '']) {
+        const response = await f.app.request(path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body,
+        });
+        const payload = await response.json() as Record<string, any>;
+        assert.equal(response.status, 400, `${path} should reject ${body === '' ? 'an empty body' : 'malformed JSON'}`);
+        assert.equal(payload.error.code, 'INVALID_REQUEST');
+      }
+    }
+
+    assert.deepEqual(writeCalls, []);
+    for (const table of ['links', 'click_tokens', 'events', 'installations', 'signup_decisions']) {
+      const row = f.store.db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number };
+      assert.equal(row.count, 0, `${table} should remain empty`);
+    }
+  } finally {
+    f.store.close();
+  }
+});
+
+test('a SyntaxError thrown by store logic remains an internal 500', async () => {
+  const f = fixture();
+  try {
+    f.store.createLink = () => { throw new SyntaxError('store implementation failure'); };
+    const response = await f.app.request('/links', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: 'campaign', reference_id: 'valid-link' }),
+    });
+    const payload = await response.json() as Record<string, any>;
+
+    assert.equal(response.status, 500);
+    assert.equal(payload.error.code, 'INTERNAL_ERROR');
+  } finally {
+    f.store.close();
+  }
+});
+
 test('persisted signup decisions and audit survive reopening the SQLite database', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'conty-attribution-'));
   const databasePath = join(directory, 'attribution.sqlite');

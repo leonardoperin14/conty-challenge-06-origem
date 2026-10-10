@@ -22,6 +22,17 @@ const signupBody = z.object({
   installation_id: identifier,
 });
 
+async function readJsonBody(read: () => Promise<unknown>): Promise<unknown> {
+  try {
+    return await read();
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new ApiError(400, 'INVALID_REQUEST', 'Request body must contain valid JSON.');
+    }
+    throw error;
+  }
+}
+
 export function createApp(store: AttributionStore, baseUrl = 'http://localhost:3000') {
   const app = new Hono();
   const publicBaseUrl = baseUrl.replace(/\/$/, '');
@@ -45,7 +56,7 @@ export function createApp(store: AttributionStore, baseUrl = 'http://localhost:3
   app.get('/health', (context) => context.json({ status: 'ok' }));
 
   app.post('/links', async (context) => {
-    const body = linkBody.parse(await context.req.json());
+    const body = linkBody.parse(await readJsonBody(() => context.req.json()));
     const link = store.createLink(body);
     return context.json({
       ...link,
@@ -54,7 +65,7 @@ export function createApp(store: AttributionStore, baseUrl = 'http://localhost:3
   });
 
   app.post('/clicks', async (context) => {
-    const body = clickBody.parse(await context.req.json());
+    const body = clickBody.parse(await readJsonBody(() => context.req.json()));
     const click = store.createClick(body);
     const openUrl = `${publicBaseUrl}/open?touch=${encodeURIComponent(click.touch_token)}`;
     return context.json({
@@ -72,17 +83,17 @@ export function createApp(store: AttributionStore, baseUrl = 'http://localhost:3
   });
 
   app.post('/app/first-open', async (context) => {
-    const body = installationBody.parse(await context.req.json());
+    const body = installationBody.parse(await readJsonBody(() => context.req.json()));
     return context.json(store.firstOpen(body.installation_id), 200);
   });
 
   app.post('/app/touches', async (context) => {
-    const body = touchBody.parse(await context.req.json());
+    const body = touchBody.parse(await readJsonBody(() => context.req.json()));
     return context.json(store.recordTouch(body), 200);
   });
 
   app.post('/signups', async (context) => {
-    const body = signupBody.parse(await context.req.json());
+    const body = signupBody.parse(await readJsonBody(() => context.req.json()));
     return context.json(store.createSignup(body), 200);
   });
 
